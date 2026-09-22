@@ -22,27 +22,53 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Install system packages
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            git zip unzip autoconf libtool pkg-config \
+            git zip unzip wget autoconf libtool pkg-config \
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             libtinfo5 cmake libffi-dev libssl-dev
 
-      - name: Install Buildozer
-        run: |
           python -m pip install --upgrade pip
           pip install buildozer
           pip install cython==0.29.37
 
+      - name: Prepare Android SDK
+        run: |
+          SDK="$HOME/android-sdk"
+
+          mkdir -p "$SDK/cmdline-tools"
+
+          wget -q \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+            -O /tmp/cmdline.zip
+
+          unzip -q /tmp/cmdline.zip -d "$SDK/cmdline-tools"
+
+          mv "$SDK/cmdline-tools/cmdline-tools" \
+             "$SDK/cmdline-tools/latest"
+
+          mkdir -p "$SDK/tools/bin"
+
+          ln -sf \
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" \
+            "$SDK/tools/bin/sdkmanager"
+
+          export ANDROID_HOME="$SDK"
+          export ANDROID_SDK_ROOT="$SDK"
+
+          yes | "$SDK/tools/bin/sdkmanager" --licenses || true
+
+          "$SDK/tools/bin/sdkmanager" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
       - name: Build APK
         run: |
-          mkdir -p ~/.buildozer/android/platform/android-sdk
-          export ANDROID_SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
-
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$HOME/android-sdk"
           buildozer android debug
 
       - name: Upload APK
