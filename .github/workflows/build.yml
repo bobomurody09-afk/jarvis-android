@@ -1,121 +1,50 @@
-name: Build JARVIS APK
+from kivy.app import App
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.textinput import TextInput
+from kivy.uix.button import Button
+from kivy.uix.label import Label
+from kivy.uix.scrollview import ScrollView
+import requests
 
-on:
-  workflow_dispatch:
+class JarvisApp(App):
+    def build(self):
+        self.layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
 
-jobs:
-  build:
-    runs-on: ubuntu-22.04
+        self.scroll = ScrollView()
+        self.chat_label = Label(size_hint_y=None, text="JARVIS: Salom! Sizga qanday yordam bera olaman?\n")
+        self.chat_label.bind(texture_size=self._update_label_height)
+        self.scroll.add_widget(self.chat_label)
+        self.layout.add_widget(self.scroll)
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+        self.input_box = TextInput(size_hint_y=None, height=50, multiline=False)
+        self.input_box.bind(on_text_validate=self.send_message)
+        self.layout.add_widget(self.input_box)
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+        send_btn = Button(text="Yuborish", size_hint_y=None, height=50)
+        send_btn.bind(on_press=self.send_message)
+        self.layout.add_widget(send_btn)
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
+        return self.layout
 
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            git \
-            zip \
-            unzip \
-            wget \
-            autoconf \
-            libtool \
-            pkg-config \
-            zlib1g-dev \
-            libncurses5-dev \
-            libncursesw5-dev \
-            libtinfo5 \
-            cmake \
-            libffi-dev \
-            libssl-dev
+    def _update_label_height(self, instance, size):
+        instance.height = size[1]
+        instance.width = self.scroll.width
+        instance.text_size = (self.scroll.width, None)
 
-      - name: Install Buildozer
-        run: |
-          python -m pip install --upgrade pip
-          pip install buildozer
-          pip install cython==0.29.37
+    def send_message(self, instance):
+        user_text = self.input_box.text.strip()
+        if not user_text:
+            return
+        self.chat_label.text += f"\nSiz: {user_text}\n"
+        self.input_box.text = ""
 
-      - name: Prepare Android SDK
-        run: |
-          SDK="$HOME/.buildozer/android/platform/android-sdk"
+        # Bu yerga API chaqiruvini qo'shasiz (hozircha oddiy javob)
+        response = self.get_response(user_text)
+        self.chat_label.text += f"JARVIS: {response}\n"
 
-          mkdir -p "$SDK/cmdline-tools"
+    def get_response(self, text):
+        # TODO: Bu yerga Claude/OpenAI API chaqiruvini qo'shing
+        return "Hozircha men oddiy javob beryapman. API ulanmagan."
 
-          wget -q \
-            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
-            -O /tmp/cmdline.zip
-
-          unzip -q /tmp/cmdline.zip -d "$SDK/cmdline-tools"
-
-          mv \
-            "$SDK/cmdline-tools/cmdline-tools" \
-            "$SDK/cmdline-tools/latest"
-
-          mkdir -p "$SDK/tools/bin"
-
-          ln -sf \
-            "$SDK/cmdline-tools/latest/bin/sdkmanager" \
-            "$SDK/tools/bin/sdkmanager"
-
-          export ANDROID_HOME="$SDK"
-          export ANDROID_SDK_ROOT="$SDK"
-
-          yes | "$SDK/tools/bin/sdkmanager" --licenses || true
-
-          "$SDK/tools/bin/sdkmanager" \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
-
-      - name: Clean old Buildozer files
-        run: |
-          rm -rf .buildozer
-          rm -rf bin
-
-      - name: Build APK
-        run: |
-          export ANDROID_HOME="$HOME/.buildozer/android/platform/android-sdk"
-          export ANDROID_SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
-
-          yes | "$ANDROID_HOME/tools/bin/sdkmanager" --licenses || true
-
-          set -o pipefail
-          buildozer android debug 2>&1 | tee build.log
-
-      - name: Show actual error
-        if: failure()
-        run: |
-          echo "========================================"
-          echo "        JARVIS BUILD ACTUAL ERROR"
-          echo "========================================"
-
-          echo ""
-          echo "===== ERROR / EXCEPTION ====="
-
-          grep -n -E \
-            "ERROR|Error|error|Exception|Traceback|Command failed" \
-            build.log | tail -n 50 || true
-
-          echo ""
-          echo "===== LAST 150 LINES ====="
-
-          tail -n 150 build.log
-
-      - name: Upload APK
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: jarvis-apk
-          path: bin/*.apk
+if __name__ == '__main__':
+    JarvisApp().run()
