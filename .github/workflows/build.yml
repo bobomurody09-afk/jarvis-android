@@ -1,65 +1,29 @@
-name: Build JARVIS APK
+[app]
 
-on:
-  workflow_dispatch:
+title = JARVIS
+package.name = jarvis
+package.domain = org.jarvis
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+source.dir = .
+source.include_exts = py,png,jpg,jpeg,kv,atlas,mp3
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+version = 0.1
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+requirements = python3,kivy,requests,edge-tts
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
+orientation = portrait
+fullscreen = 0
 
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            git zip unzip autoconf libtool pkg-config \
-            zlib1g-dev libncurses5-dev libncursesw5-dev \
-            libtinfo6 cmake libffi-dev
+android.permissions = INTERNET,RECORD_AUDIO
 
-          python -m pip install --upgrade pip
-          pip install buildozer cython==0.29.37
+android.api = 35
+android.minapi = 23
 
-      - name: Prepare Android SDK
-        run: |
-          mkdir -p "$HOME/.buildozer/android/platform/android-sdk/build-tools/35.0.0"
+android.archs = arm64-v8a
 
-          SDK="$HOME/.buildozer/android/platform/android-sdk"
+android.sdk_path = /home/runner/.buildozer/android/platform/android-sdk
 
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdline.zip
+[buildozer]
 
-          mkdir -p "$SDK/cmdline-tools"
-          unzip -q /tmp/cmdline.zip -d "$SDK/cmdline-tools"
-
-          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
-
-          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" --licenses || true
-
-          "$SDK/cmdline-tools/latest/bin/sdkmanager" \
-            --sdk_root="$SDK" \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
-
-      - name: Build APK
-        run: |
-          buildozer android debug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: jarvis-apk
-          path: bin/*.apk
+log_level = 2
+warn_on_root = 1
