@@ -22,7 +22,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Install dependencies
+      - name: Install system packages
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -30,17 +30,19 @@ jobs:
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             libtinfo5 cmake libffi-dev libssl-dev
 
+      - name: Install Buildozer
+        run: |
           python -m pip install --upgrade pip
           pip install buildozer
           pip install cython==0.29.37
 
-      - name: Clean Buildozer cache
-        run: |
-          rm -rf ~/.buildozer
-          rm -rf .buildozer
-
       - name: Build APK
         run: |
+          mkdir -p ~/.buildozer/android/platform/android-sdk
+          export ANDROID_SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
+
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
           buildozer android debug
 
       - name: Upload APK
