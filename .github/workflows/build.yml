@@ -22,7 +22,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Install packages
+      - name: Install system packages
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -41,6 +41,8 @@ jobs:
             libffi-dev \
             libssl-dev
 
+      - name: Install Buildozer
+        run: |
           python -m pip install --upgrade pip
           pip install buildozer
           pip install cython==0.29.37
@@ -57,8 +59,9 @@ jobs:
 
           unzip -q /tmp/cmdline.zip -d "$SDK/cmdline-tools"
 
-          mv "$SDK/cmdline-tools/cmdline-tools" \
-             "$SDK/cmdline-tools/latest"
+          mv \
+            "$SDK/cmdline-tools/cmdline-tools" \
+            "$SDK/cmdline-tools/latest"
 
           mkdir -p "$SDK/tools/bin"
 
@@ -74,8 +77,12 @@ jobs:
           "$SDK/tools/bin/sdkmanager" \
             "platform-tools" \
             "platforms;android-35" \
-            "build-tools;35.0.0" \
-            "build-tools;37.0.0"
+            "build-tools;35.0.0"
+
+      - name: Clean old Buildozer files
+        run: |
+          rm -rf .buildozer
+          rm -rf bin
 
       - name: Build APK
         run: |
@@ -84,9 +91,30 @@ jobs:
 
           yes | "$ANDROID_HOME/tools/bin/sdkmanager" --licenses || true
 
-          buildozer android debug
+          set -o pipefail
+          buildozer android debug 2>&1 | tee build.log
+
+      - name: Show actual error
+        if: failure()
+        run: |
+          echo "========================================"
+          echo "        JARVIS BUILD ACTUAL ERROR"
+          echo "========================================"
+
+          echo ""
+          echo "===== ERROR / EXCEPTION ====="
+
+          grep -n -E \
+            "ERROR|Error|error|Exception|Traceback|Command failed" \
+            build.log | tail -n 50 || true
+
+          echo ""
+          echo "===== LAST 150 LINES ====="
+
+          tail -n 150 build.log
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: jarvis-apk
